@@ -2,6 +2,12 @@
 # Small utility to upload a file to an embedded Linux system that provides a shell
 # via its serial port.
 
+"""
+must go into /tmp directory
+sudo python3 serio.py -s ./exfil.mips -b 57600 -p /dev/ttyUSB0 -d /tmp/exfil.mips
+"""
+
+
 import sys, time
 from getopt import GetoptError, getopt as GetOpt
 
@@ -24,30 +30,30 @@ class SerialFTP:
         j = 0
 
         # Create/zero the file
-        self.write('\necho -ne > %s\n' % destination)
+        self.write(b'\necho -ne > %s\n' % destination)
 
         # Loop through all the bytes in the source file and append them to
         # the destination file BYTES_PER_LINE bytes at a time
         while i < data_size:
             j = 0
-            dpart = ''
+            dpart = b''
 
             while j < self.BYTES_PER_LINE and i < data_size:
-                dpart += '\\x%.2X' % int(ord(data[i]))
+                dpart += b'\\\\x%.2X' % int(ord(chr(data[i])))
                 j+=1
                 i+=1
 
-            self.write('\necho -ne "%s" >> %s\n' % (dpart, destination))
+            self.write(b'\necho -ne "%s" >> %s\n' % (dpart, destination))
 
             # Show upload status
             if not self.quiet:
-                print "%d / %d" % (i, data_size)
+                print ("%d / %d" % (i, data_size))
 
         return i
 
     def write(self, data):
         self.s.write(data)
-        if data.endswith('\n'):
+        if data.endswith(b'\n'):
             # Have to give the target system time for disk/flash I/O
             time.sleep(self.IO_TIME)
 
@@ -75,18 +81,18 @@ class TelnetFTP(SerialFTP):
 
 
 def usage():
-    print '\nUsage: %s [OPTIONS]\n' % sys.argv[0]
-    print '\t-s, --source=<local file>              Path to local file'
-    print '\t-d, --destination=<remote file>        Path to remote file'
-    print '\t    --telnet=<host>                    Upload via telnet instead of serial'
-    print '\t-p, --port=<port>                      Serial port to use [/dev/ttyUSB0] or telnet port [23]'
-    print '\t-b, --baudrate=<baud>                  Serial port baud rate [115200]'
-    print '\t-t, --time=<seconds>                   Time to wait between echo commands [0.1]'
-    print '\t    --login=<username>                 Login name for telnet'
-    print '\t    --pass=<passwd>                    Password for telnet'
-    print '\t-q, --quiet                            Supress status messages'
-    print '\t-h, --help                             Show help'
-    print ''
+    print ('\nUsage: %s [OPTIONS]\n' % sys.argv[0])
+    print ('\t-s, --source=<local file>              Path to local file')
+    print ('\t-d, --destination=<remote file>        Path to remote file')
+    print ('\t    --telnet=<host>                    Upload via telnet instead of serial')
+    print ('\t-p, --port=<port>                      Serial port to use [/dev/ttyUSB0] or telnet port [23]')
+    print ('\t-b, --baudrate=<baud>                  Serial port baud rate [115200]')
+    print ('\t-t, --time=<seconds>                   Time to wait between echo commands [0.1]')
+    print ('\t    --login=<username>                 Login name for telnet')
+    print ('\t    --pass=<passwd>                    Password for telnet')
+    print ('\t-q, --quiet                            Supress status messages')
+    print ('\t-h, --help                             Show help')
+    print ('')
     sys.exit(1)
 
 def main():
@@ -104,25 +110,25 @@ def main():
     try:
         opts, args = GetOpt(sys.argv[1:],'p:b:s:d:t:qh', ['port=', 'baudrate=',
             'source=', 'destination=', 'time=', 'quiet', 'help', 'telnet=', 'login=', 'pass='])
-    except GetoptError, e:
-        print 'Usage error:', e
+    except GetoptError as e:
+        print ('Usage error:', e)
         usage()
 
     for opt, arg in opts:
         if opt in ('--telnet',):
             host = arg
         elif opt in ('--login',):
-            login = arg
+            login = str.encode(arg)
         elif opt in ('--pass',):
-            passwd = arg
+            passwd = str.encode(arg)
         elif opt in ('-p', '--port'):
             port = arg
         elif opt in ('-b', '--baudrate'):
-            baudrate = arg
+            baudrate = str.encode(arg)
         elif opt in ('-s', '--source'):
-            source = arg
+            source = str.encode(arg)
         elif opt in ('-d', '--destination'):
-            destination = arg
+            destination = str.encode(arg)
         elif opt in ('-t', '--time'):
             time = float(arg)
         elif opt in ('-q', '--quiet'):
@@ -131,7 +137,7 @@ def main():
             usage()
 
     if not source or not destination:
-        print 'Usage error: must specify -s and -d options'
+        print ('Usage error: must specify -s and -d options')
         usage()
 
     try:
@@ -151,9 +157,9 @@ def main():
         size = sftp.put(source, destination)
         sftp.close()
 
-        print 'Uploaded %d bytes from %s to %s' % (size, source, destination)
-    except Exception, e:
-        print "ERROR:", e
+        print ('Uploaded %d bytes from %s to %s' % (size, source, destination))
+    except Exception as e:
+        print ("ERROR:", e)
 
 
 if __name__ == '__main__':
